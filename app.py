@@ -18,18 +18,16 @@ def chat(user_input):
 def submit_fn(user_input):
     """Enviar mensaje y actualizar chat"""
     response = chat(user_input)
-    messages = memory.get_history()  # lista de dicts {'role':..., 'content':...}
+    messages = memory.get_history()
     return "", messages, None
 
 def text_to_speech_last():
     """Lee en voz alta el último mensaje del bot"""
-    # Obtener último mensaje de assistant
     assistant_messages = [m for m in memory.get_history() if m["role"] == "assistant"]
     if not assistant_messages:
         return None
     text = assistant_messages[-1]["content"]
 
-    # Crear archivo temporal de audio
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
         filename = f.name
 
@@ -37,22 +35,37 @@ def text_to_speech_last():
     engine.runAndWait()
     return filename
 
-with gr.Blocks() as demo:
-    gr.Markdown("# Chatbot con OpenRouter + Botón de Voz")
+with gr.Blocks(css="""
+.speak-btn button {
+    min-width: 40px;
+    max-width: 40px;
+    height: 40px;
+    font-size: 20px;
+}
+.hidden-audio {
+    height: 1px !important;
+    visibility: hidden;
+}
+""") as demo:
+    gr.Markdown("# 🤖 Chatbot con OpenRouter + Voz")
 
     chatbot_ui = gr.Chatbot(type="messages")
-    msg = gr.Textbox(placeholder="Escribe tu mensaje...")
-    audio_out = gr.Audio(label="Escucha la respuesta", type="filepath")
+    
+    with gr.Row():
+        msg = gr.Textbox(placeholder="Escribe tu mensaje...", scale=9)
+        speak_btn = gr.Button("🔊", elem_classes="speak-btn", scale=1)
+
+    # 🔊 El audio existe pero está oculto con CSS
+    audio_out = gr.Audio(type="filepath", autoplay=True, elem_classes="hidden-audio")
 
     # Enviar mensaje
     msg.submit(submit_fn, msg, [msg, chatbot_ui, audio_out])
 
-    # Botón para leer en alto último mensaje del bot
-    gr.Button("Leer en alto").click(
+    # Leer en alto último mensaje del bot
+    speak_btn.click(
         text_to_speech_last,
         inputs=[],
         outputs=audio_out
     )
 
 demo.launch(server_name="0.0.0.0", server_port=7860)
-
