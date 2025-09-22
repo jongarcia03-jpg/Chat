@@ -1,12 +1,11 @@
-import pyttsx3
 import gradio as gr
+from gtts import gTTS
 from chatbot.bot import get_response
 from chatbot.memory import ChatMemory
 import tempfile
 
-# Inicializar memoria y motor TTS
+# Inicializar memoria
 memory = ChatMemory()
-engine = pyttsx3.init()
 
 def chat(user_input):
     """Procesa el mensaje del usuario y devuelve la respuesta del bot"""
@@ -22,40 +21,50 @@ def submit_fn(user_input):
     return "", messages, None
 
 def text_to_speech_last():
-    """Lee en voz alta el último mensaje del bot"""
+    """Lee en voz alta el último mensaje del bot con gTTS en español neutro"""
     assistant_messages = [m for m in memory.get_history() if m["role"] == "assistant"]
     if not assistant_messages:
         return None
     text = assistant_messages[-1]["content"]
 
+    # Crear archivo temporal único para cada audio
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as f:
         filename = f.name
-
-    engine.save_to_file(text, filename)
-    engine.runAndWait()
+    tts = gTTS(text=text, lang="es", slow=False)
+    tts.save(filename)
     return filename
 
 with gr.Blocks(css="""
+/* Botón de voz */
 .speak-btn button {
     min-width: 40px;
     max-width: 40px;
     height: 40px;
     font-size: 20px;
 }
+/* Ocultar el reproductor de audio */
 .hidden-audio {
     height: 1px !important;
     visibility: hidden;
 }
+/* Ocultar texto de 'processing' */
+.wrap.svelte-1ipelgc {
+    display: none !important;
+}
+/* Ocultar títulos/labels de Chatbot y Textbox */
+.label-wrap {
+    display: none !important;
+}
 """) as demo:
-    gr.Markdown("# 🤖 Chatbot con OpenRouter + Voz")
+    gr.Markdown("# 🤖 Chatbot con OpenRouter + Voz (gTTS)")
 
-    chatbot_ui = gr.Chatbot(type="messages")
-    
+    chatbot_ui = gr.Chatbot(type="messages")  # sin label
+
     with gr.Row():
-        msg = gr.Textbox(placeholder="Escribe tu mensaje...", scale=9)
+        msg = gr.Textbox(placeholder="Escribe tu mensaje...", scale=9)  # sin label
         speak_btn = gr.Button("🔊", elem_classes="speak-btn", scale=1)
 
-    # 🔊 El audio existe pero está oculto con CSS
+    # El audio se reproduce automáticamente pero está oculto
     audio_out = gr.Audio(type="filepath", autoplay=True, elem_classes="hidden-audio")
 
     # Enviar mensaje
