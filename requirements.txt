@@ -1,0 +1,4 @@
+openai
+openrouter
+gradio
+python-dotenv

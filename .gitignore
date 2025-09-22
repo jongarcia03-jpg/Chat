@@ -1,0 +1,54 @@
+# Archivos compilados de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Entornos virtuales
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Archivos de configuración locales
+*.env
+*.ini
+*.toml
+*.cfg
+
+# Logs
+*.log
+
+# Archivos de pruebas
+.coverage
+.tox/
+.nox/
+.pytest_cache/
+
+# Archivos de IDEs y editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Distribuciones y builds
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Caché
+*.mypy_cache/
+*.pytest_cache/
+.pyre/
+.dmypy.json
+.pytype/
+.pyc
+
+# Documentación generada
+_site/
+docs/_build/
+
+# Otros
+.DS_Store
+Thumbs.db
