@@ -18,7 +18,7 @@ def get_response(prompt, history=None):
         model=MODEL_NAME,
         messages=messages,
         temperature=0.7,
-        max_tokens=500,
+        max_tokens=5000,
         extra_headers={},
         extra_body={}
     )

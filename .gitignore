@@ -52,3 +52,5 @@ docs/_build/
 # Otros
 .DS_Store
 Thumbs.db
+
+conversations.json
