@@ -2,3 +2,4 @@ openai
 openrouter
 gradio
 python-dotenv
+pyttsx3
