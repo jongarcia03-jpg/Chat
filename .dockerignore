@@ -1,42 +1,25 @@
-# Backend Python
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.db
-*.sqlite3
 .env
 .venv
 env/
 venv/
-ENV/
 
 # Logs
 *.log
 
-# Configuración local
-*.ini
-*.toml
-*.cfg
-*.env
+# Conversaciones locales
+backend/conversations.json
 
-# Tests
-.pytest_cache/
-.mypy_cache/
-.coverage
-.tox/
-nox/
-
-# Persistencia local
-conversations.json
-
-# Frontend Node
+# Node
 node_modules/
 dist/
 build/
 .vite/
 .cache/
-*.local
 
 # Archivos de sistema
 .DS_Store

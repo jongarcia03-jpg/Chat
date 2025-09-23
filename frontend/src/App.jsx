@@ -8,12 +8,14 @@ function App() {
   const [conversations, setConversations] = useState({})
   const [activeConv, setActiveConv] = useState(null)
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+
   // Cargar lista de conversaciones al iniciar
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/conversations")
+    fetch(`${API_URL}/conversations`)
       .then((res) => res.json())
       .then((data) => setConversations(data))
-  }, [])
+  }, [API_URL])
 
   const sendMessage = async () => {
     if (!input) return
@@ -21,7 +23,7 @@ function App() {
     setMessages((prev) => [...prev, userMsg, { role: "assistant", content: "🤖 escribiendo..." }])
     setLoading(true)
 
-    const res = await fetch("http://127.0.0.1:8000/chat", {
+    const res = await fetch(`${API_URL}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: input }),
@@ -32,8 +34,8 @@ function App() {
     setInput("")
     setLoading(false)
 
-    // Refrescar lista de conversaciones (por si cambió el título)
-    const convs = await fetch("http://127.0.0.1:8000/conversations").then((r) => r.json())
+    // Refrescar lista de conversaciones
+    const convs = await fetch(`${API_URL}/conversations`).then((r) => r.json())
     setConversations(convs)
   }
 
@@ -41,19 +43,21 @@ function App() {
     const lastBot = [...messages].reverse().find((m) => m.role === "assistant")
     if (!lastBot) return
 
-    const res = await fetch("http://127.0.0.1:8000/speak", {
+    const res = await fetch(`${API_URL}/speak`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: lastBot.content }),
     })
     const data = await res.json()
 
-    const audio = new Audio(data.audio_url)
+    // 👉 Reemplaza "backend" por "localhost" para que funcione en el navegador
+    const audioUrl = data.audio_url.replace("backend", "localhost")
+    const audio = new Audio(audioUrl)
     audio.play()
   }
 
   const newConversation = async () => {
-    const res = await fetch("http://127.0.0.1:8000/conversations", { method: "POST" })
+    const res = await fetch(`${API_URL}/conversations`, { method: "POST" })
     const data = await res.json()
     setConversations((prev) => ({ ...prev, [data.id]: { title: data.title } }))
     setActiveConv(data.id)
@@ -61,15 +65,15 @@ function App() {
   }
 
   const loadConversation = async (cid) => {
-    const res = await fetch(`http://127.0.0.1:8000/conversations/${cid}`)
+    const res = await fetch(`${API_URL}/conversations/${cid}`)
     const data = await res.json()
     setActiveConv(cid)
     setMessages(data.history)
   }
 
   const deleteConversation = async (cid) => {
-    await fetch(`http://127.0.0.1:8000/conversations/${cid}`, { method: "DELETE" })
-    const convs = await fetch("http://127.0.0.1:8000/conversations").then((r) => r.json())
+    await fetch(`${API_URL}/conversations/${cid}`, { method: "DELETE" })
+    const convs = await fetch(`${API_URL}/conversations`).then((r) => r.json())
     setConversations(convs)
     if (activeConv === cid) {
       setMessages([])

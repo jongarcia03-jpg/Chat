@@ -26,7 +26,7 @@ app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 # CORS para React u otros clientes
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # ⚠️ en producción pon tu dominio
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -71,11 +71,19 @@ async def chat(req: ChatRequest):
 async def speak(req: SpeakRequest):
     path = text_to_speech(req.text)
     filename = os.path.basename(path)
-    return {"audio_url": f"http://127.0.0.1:8000/audio/{filename}"}
+
+    # 👉 Devuelve la URL accesible desde Docker (usando el servicio "backend")
+    return {"audio_url": f"http://backend:8000/audio/{filename}"}
 
 @app.get("/conversations")
 async def get_conversations():
     return {cid: {"title": conv["title"]} for cid, conv in conversations.items()}
+
+@app.get("/conversations/{cid}")
+async def get_conversation(cid: str):
+    if cid not in conversations:
+        return {"error": "No existe la conversación"}
+    return {"id": cid, "title": conversations[cid]["title"], "history": conversations[cid]["memory"].get_history()}
 
 @app.post("/conversations")
 async def new_conversation():
@@ -95,9 +103,3 @@ async def delete_conversation(cid: str):
             current_conversation = list(conversations.keys())[-1] if conversations else None
         save_conversations(conversations)
     return {"ok": True}
-
-@app.get("/conversations/{cid}")
-async def get_conversation(cid: str):
-    if cid not in conversations:
-        return {"error": "No existe la conversación"}
-    return {"id": cid, "title": conversations[cid]["title"], "history": conversations[cid]["memory"].get_history()}
