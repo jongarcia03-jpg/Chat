@@ -1,3 +1,7 @@
+# =======================
+# BACKEND (Python / FastAPI)
+# =======================
+
 # Archivos compilados de Python
 __pycache__/
 *.py[cod]
@@ -10,7 +14,7 @@ env/
 venv/
 ENV/
 
-# Archivos de configuración locales
+# Configuración local y claves
 *.env
 *.ini
 *.toml
@@ -24,6 +28,11 @@ ENV/
 .tox/
 .nox/
 .pytest_cache/
+*.pytest_cache/
+.mypy_cache/
+.pyre/
+.dmypy.json
+.pytype/
 
 # Archivos de IDEs y editores
 .vscode/
@@ -37,20 +46,50 @@ dist/
 *.egg-info/
 .eggs/
 
-# Caché
-*.mypy_cache/
-*.pytest_cache/
-.pyre/
-.dmypy.json
-.pytype/
-.pyc
-
 # Documentación generada
 _site/
 docs/_build/
 
-# Otros
+# Archivos temporales del sistema
 .DS_Store
 Thumbs.db
 
+# Persistencia del chatbot
 conversations.json
+
+# =======================
+# FRONTEND (React / Vite)
+# =======================
+
+# Dependencias
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Archivos de build
+dist/
+build/
+
+# Archivos de lock de dependencias opcionales
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Archivos locales de Vite
+*.local
+
+# Caché de vite y bundlers
+.vite/
+.cache/
+
+# =======================
+# OTROS
+# =======================
+
+# Archivos temporales del SO
+*.tmp
+*.temp
+
+# Archivos de audio generados
+*.mp3

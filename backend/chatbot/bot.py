@@ -18,10 +18,7 @@ def get_response(prompt, history=None):
         model=MODEL_NAME,
         messages=messages,
         temperature=0.7,
-        max_tokens=5000,
-        extra_headers={},
-        extra_body={}
+        max_tokens=500,
     )
 
-    text = completion.choices[0].message.content
-    return text
+    return completion.choices[0].message.content

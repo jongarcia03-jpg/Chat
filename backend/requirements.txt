@@ -1,5 +1,6 @@
 openai
 openrouter
-gradio
+fastapi
+uvicorn
 python-dotenv
 gtts

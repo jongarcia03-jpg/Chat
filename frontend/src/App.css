@@ -1,0 +1,168 @@
+/* General */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body, html, #root {
+  height: 100%;
+  font-family: Arial, sans-serif;
+}
+
+/* Layout */
+.app {
+  display: flex;
+  height: 100vh;
+  background-color: #1e1e1e;
+  color: white;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 250px;
+  background-color: #2c2c2c;
+  padding: 20px;
+  border-right: 1px solid #444;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar h2 {
+  margin-bottom: 20px;
+}
+
+.new-chat {
+  background: #3a3a3a;
+  color: white;
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.new-chat:hover {
+  background: #555;
+}
+
+/* Chat */
+.chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.message {
+  margin-bottom: 10px;
+  display: flex;
+}
+
+.message.user {
+  justify-content: flex-end;
+}
+
+.message.assistant {
+  justify-content: flex-start;
+}
+
+.bubble {
+  padding: 10px 15px;
+  border-radius: 15px;
+  max-width: 60%;
+}
+
+.user .bubble {
+  background: #007bff;
+  color: white;
+  border-bottom-right-radius: 5px;
+}
+
+.assistant .bubble {
+  background: #444;
+  border-bottom-left-radius: 5px;
+}
+
+.typing {
+  font-style: italic;
+  color: #aaa;
+}
+
+/* Input */
+.input-container {
+  display: flex;
+  padding: 10px;
+  border-top: 1px solid #444;
+  background: #2c2c2c;
+}
+
+.input-container input {
+  flex: 1;
+  padding: 10px;
+  border-radius: 5px;
+  border: none;
+  outline: none;
+}
+
+.input-container button {
+  margin-left: 10px;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.input-container button:first-of-type {
+  background: #007bff;
+  color: white;
+}
+
+.input-container button:first-of-type:hover {
+  background: #0056b3;
+}
+
+.input-container button:last-of-type {
+  background: #28a745;
+  color: white;
+}
+
+.input-container button:last-of-type:hover {
+  background: #1c7c31;
+}
+.conv-list {
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.conv-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #3a3a3a;
+  padding: 8px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.conv-item.active {
+  background: #007bff;
+}
+
+.conv-item span {
+  flex: 1;
+  margin-right: 8px;
+}
+
+.delete-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #ff5555;
+}
