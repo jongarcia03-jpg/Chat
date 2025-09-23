@@ -1,28 +1,24 @@
-# Imagen base con Python
+# Backend - FastAPI
 FROM python:3.11-slim
 
-# Evitar prompts interactivos
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Crear directorio de trabajo
+# Crear directorio de la app
 WORKDIR /app
 
-# Instalar dependencias del sistema para pyttsx3 y audio
+# Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
-    espeak ffmpeg libespeak-ng1 \
+    build-essential \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar dependencias
+# Copiar requirements e instalar
 COPY requirements.txt .
-
-# Instalar dependencias de Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar todo el proyecto
+# Copiar código
 COPY . .
 
-# Puerto para Gradio
-EXPOSE 7860
+# Exponer puerto
+EXPOSE 8000
 
-# Comando de ejecución
-CMD ["python", "app.py"]
+# Lanzar con uvicorn
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

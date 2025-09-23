@@ -1,3 +1,4 @@
+# Backend Python
 __pycache__/
 *.pyc
 *.pyo
@@ -5,4 +6,38 @@ __pycache__/
 *.db
 *.sqlite3
 .env
-.venv/
+.venv
+env/
+venv/
+ENV/
+
+# Logs
+*.log
+
+# Configuración local
+*.ini
+*.toml
+*.cfg
+*.env
+
+# Tests
+.pytest_cache/
+.mypy_cache/
+.coverage
+.tox/
+nox/
+
+# Persistencia local
+conversations.json
+
+# Frontend Node
+node_modules/
+dist/
+build/
+.vite/
+.cache/
+*.local
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
