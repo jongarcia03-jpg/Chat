@@ -12,3 +12,7 @@ def text_to_speech(text: str) -> str:
     filepath = os.path.join(AUDIO_DIR, filename)
     tts.save(filepath)
     return filepath
+
+def generate_speech(text: str) -> str:
+    """Compatibilidad: llama a text_to_speech y devuelve la ruta del archivo."""
+    return text_to_speech(text)

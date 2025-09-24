@@ -22,7 +22,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Login
-  const [token, setToken] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem("token") || null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isRegister, setIsRegister] = useState(false);
@@ -57,9 +57,12 @@ function App() {
     setToken(null);
     localStorage.removeItem("token");
     setShowConfig(false);
+    setActiveConv(null);
+    setMessages([]);
+    setConversations({});
   };
 
-  // cerrar menú al hacer clic fuera
+  // cerrar menús al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (configRef.current && !configRef.current.contains(e.target)) {
@@ -85,6 +88,7 @@ function App() {
       const data = await res.json();
       setToken(data.token);
       localStorage.setItem("token", data.token);
+      await refreshConversations();
     } else {
       alert("Credenciales incorrectas");
     }
@@ -107,25 +111,32 @@ function App() {
 
   // ===== API helpers =====
   const refreshConversations = async () => {
-    const data = await fetch(`${API_URL}/conversations`, {
+    if (!token) return;
+    const res = await fetch(`${API_URL}/conversations`, {
       headers: { Authorization: token },
-    }).then((r) => r.json());
+    });
+    if (!res.ok) return;
+    const data = await res.json();
     setConversations(data);
   };
 
   const loadConversation = async (cid) => {
-    const data = await fetch(`${API_URL}/conversations/${cid}`, {
+    const res = await fetch(`${API_URL}/conversations/${cid}`, {
       headers: { Authorization: token },
-    }).then((r) => r.json());
+    });
+    if (!res.ok) return;
+    const data = await res.json();
     setActiveConv(cid);
     setMessages(data.history || []);
   };
 
   const newConversation = async () => {
-    const data = await fetch(`${API_URL}/conversations`, {
+    const res = await fetch(`${API_URL}/conversations`, {
       method: "POST",
       headers: { Authorization: token },
-    }).then((r) => r.json());
+    });
+    if (!res.ok) return;
+    const data = await res.json();
 
     const updated = { ...conversations, [data.id]: { title: data.title } };
     setConversations(updated);
@@ -162,10 +173,12 @@ function App() {
       },
       body: JSON.stringify({ message: userMsg.content }),
     });
-    const data = await res.json();
 
+    const data = await res.json();
     setMessages(data.history || []);
     setLoading(false);
+
+    // El backend genera y guarda el título en el primer mensaje
     await refreshConversations();
   };
 
@@ -188,24 +201,17 @@ function App() {
 
   // ===== efectos =====
   useEffect(() => {
-    const savedToken = localStorage.getItem("token");
-    if (savedToken) setToken(savedToken);
-  }, []);
-
-  useEffect(() => {
     if (!token) return;
     (async () => {
-      const data = await fetch(`${API_URL}/conversations`, {
-        headers: { Authorization: token },
-      }).then((r) => r.json());
-      setConversations(data);
-      const ids = Object.keys(data);
+      await refreshConversations();
+      const ids = Object.keys(conversations || {});
       if (ids.length > 0) {
         const last = ids[ids.length - 1];
         await loadConversation(last);
       }
     })();
-  }, [API_URL, token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -213,7 +219,7 @@ function App() {
     }
   }, [messages]);
 
-  // === estado derivado para deshabilitar "Nuevo chat" ===
+  // Deshabilitar "Nuevo chat" si la conversación activa no tiene mensajes de usuario
   const isNewChatDisabled =
     activeConv && (!messages || messages.length === 0 || !messages.some((m) => m.role === "user"));
 
@@ -249,39 +255,27 @@ function App() {
     );
   }
 
-  // ===== Pantalla principal =====
+  // ===== UI principal =====
   return (
     <div className="app">
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="sidebar__header">
           {sidebarOpen ? (
-            <button
-              className="hamburger--small"
-              onClick={() => setSidebarOpen(false)}
-              title="Cerrar"
-            >
+            <button className="hamburger--small" onClick={() => setSidebarOpen(false)} title="Cerrar">
               <FiArrowLeft />
             </button>
           ) : (
-            <button
-              className="hamburger--small"
-              onClick={() => setSidebarOpen(true)}
-              title="Abrir"
-            >
+            <button className="hamburger--small" onClick={() => setSidebarOpen(true)} title="Abrir">
               <FiMenu />
             </button>
           )}
         </div>
 
-        {/* Sidebar cerrada → quick bar */}
+        {/* Quick bar cuando está cerrada */}
         {!sidebarOpen && (
           <div className="sidebar__shortcuts">
-            <button
-              title="Nuevo chat"
-              onClick={newConversation}
-              disabled={isNewChatDisabled}
-            >
+            <button title="Nuevo chat" onClick={newConversation} disabled={isNewChatDisabled}>
               <FiPlus />
             </button>
             <button title="Buscar chats">
@@ -309,7 +303,7 @@ function App() {
               <FiBook /> <span>Biblioteca</span>
             </div>
 
-            {/* Chats */}
+            {/* Lista de chats */}
             <div className="sidebar__section">CHATS</div>
             <div className="sidebar__chats">
               {Object.entries(conversations).map(([cid, conv]) => (
@@ -335,34 +329,20 @@ function App() {
           </div>
         )}
 
-        {/* Configuración fija abajo */}
+        {/* Config abajo a la izquierda (también cuando está cerrada) */}
         <div className="sidebar__footer">
-          <div
-            className="sidebar__item"
-            onClick={() => setShowConfig(!showConfig)}
-            ref={configRef}
-          >
+          <div className="sidebar__item" onClick={() => setShowConfig(!showConfig)} ref={configRef}>
             <FiSettings /> {sidebarOpen && <span>Configuración</span>}
           </div>
         </div>
 
-        {/* Menú flotante de configuración */}
+        {/* Pop-up de configuración */}
         {showConfig && (
-          <div
-            className={`config-popup ${sidebarOpen ? "from-sidebar" : "from-quick"}`}
-            ref={configRef}
-          >
-            <div
-              className="config-option"
-              onClick={() => setShowThemeMenu(!showThemeMenu)}
-            >
+          <div className={`config-popup ${sidebarOpen ? "from-sidebar" : "from-quick"}`} ref={configRef}>
+            <div className="config-option" onClick={() => setShowThemeMenu(!showThemeMenu)}>
               Tema
               <span className="config-value">
-                {theme === "system"
-                  ? "Sistema"
-                  : theme === "dark"
-                  ? "Oscuro"
-                  : "Claro"} ▼
+                {theme === "system" ? "Sistema" : theme === "dark" ? "Oscuro" : "Claro"} ▼
               </span>
             </div>
 
@@ -392,12 +372,7 @@ function App() {
       <main className={`chat ${sidebarOpen ? "shifted" : ""}`}>
         <div className="messages">
           {messages.map((m, i) => (
-            <div
-              key={i}
-              className={`message ${
-                m.role === "user" ? "message--user" : "message--bot"
-              }`}
-            >
+            <div key={i} className={`message ${m.role === "user" ? "message--user" : "message--bot"}`}>
               <div className="bubble">{m.content}</div>
             </div>
           ))}

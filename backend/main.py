@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -8,7 +10,12 @@ from chatbot.utils import generate_title
 from chatbot.models import init_db, SessionLocal, User, Conversation, Message
 from sqlalchemy.orm import Session
 from passlib.hash import bcrypt
-import uuid, os, tempfile, re
+import uuid, tempfile, re
+
+# ==============================
+# Cargar variables de entorno
+# ==============================
+load_dotenv()
 
 # ==============================
 # Inicialización
@@ -147,17 +154,16 @@ def chat(req: ChatRequest, user: User = Depends(get_current_user), db: Session =
     history = [{"role": m.role, "content": m.content} for m in conv.messages] + [{"role": "user", "content": req.message}]
 
     # Llamada a IA
-    response_text = get_response(req.message, history=history)
-    if not response_text or not response_text.strip():
-        response_text = "Lo siento, no tengo respuesta para eso."
+    response_text = get_response(req.message, history=history) or "Lo siento, no tengo respuesta para eso."
 
     # Guardar respuesta
     msg_bot = Message(role="assistant", content=response_text, conversation_id=conv.id)
     db.add(msg_bot)
 
-    # Renombrar conversación si es la primera interacción
-    if len(conv.messages) <= 2:
+    # ✅ Generar título con IA solo en la primera interacción
+    if conv.title == "Nueva conversación":
         conv.title = generate_title(req.message)
+        db.commit()
 
     db.commit()
 
@@ -185,4 +191,4 @@ async def speak(payload: dict):
     clean = clean_text(raw_text)
     filepath = text_to_speech(clean)
     filename = os.path.basename(filepath)
-    return {"audio_url": f"http://backend:8000/audio/{filename}"}
+    return {"audio_url": f"http://localhost:8000/audio/{filename}"}

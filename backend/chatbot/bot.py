@@ -1,24 +1,34 @@
+import os
+from dotenv import load_dotenv
 from openai import OpenAI
-from config import OPENROUTER_API_KEY, MODEL_NAME
+
+# Cargar .env
+load_dotenv()
+
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+    raise RuntimeError("❌ Falta OPENROUTER_API_KEY en backend/.env")
+
+# Modelo por defecto para chat (puedes usar otro de OpenRouter)
+CHAT_MODEL = os.getenv("OPENROUTER_CHAT_MODEL", os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini"))
 
 client = OpenAI(
+    api_key=OPENROUTER_API_KEY,
     base_url="https://openrouter.ai/api/v1",
-    api_key=OPENROUTER_API_KEY
 )
 
-def get_response(prompt, history=None):
-    messages = []
+def get_response(user_message: str, history: list[dict]) -> str:
+    """
+    Devuelve la respuesta de la IA usando OpenRouter.
+    history: lista de {role: 'user'|'assistant', content: str}
+    """
+    messages = [{"role": "system", "content": "Eres un asistente útil y conciso."}] + history + [
+        {"role": "user", "content": user_message}
+    ]
 
-    if history:
-        messages.extend(history)
-
-    messages.append({"role": "user", "content": prompt})
-
-    completion = client.chat.completions.create(
-        model=MODEL_NAME,
+    resp = client.chat.completions.create(
+        model=CHAT_MODEL,
         messages=messages,
         temperature=0.7,
-        max_tokens=500,
     )
-
-    return completion.choices[0].message.content
+    return (resp.choices[0].message.content or "").strip()
