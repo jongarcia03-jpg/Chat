@@ -1,5 +1,16 @@
 import { useEffect, useState, useRef } from "react";
-import { FiMenu, FiPlus, FiSettings, FiArrowLeft } from "react-icons/fi";
+import {
+  FiMenu,
+  FiPlus,
+  FiArrowLeft,
+  FiTrash2,
+  FiSend,
+  FiVolume2,
+  FiMessageSquare,
+  FiSearch,
+  FiBook,
+  FiSettings,
+} from "react-icons/fi";
 import "./App.css";
 
 function App() {
@@ -8,13 +19,37 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [conversations, setConversations] = useState({});
   const [activeConv, setActiveConv] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // 🔑 Login
   const [token, setToken] = useState(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isRegister, setIsRegister] = useState(false);
+
+  // 🎨 Tema
+  const [theme, setTheme] = useState(localStorage.getItem("theme") || "system");
+  const [showConfig, setShowConfig] = useState(false);
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
+
+  const applyTheme = (selected) => {
+    if (selected === "system") {
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.body.classList.toggle("light-theme", !prefersDark);
+    } else {
+      document.body.classList.toggle("light-theme", selected === "light");
+    }
+  };
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  const changeTheme = (newTheme) => {
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+    setShowThemeMenu(false);
+  };
 
   const messagesEndRef = useRef(null);
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -75,7 +110,6 @@ function App() {
     setConversations(updated);
     setActiveConv(data.id);
     setMessages([]);
-    setSidebarOpen(false);
   };
 
   const deleteConversation = async (cid) => {
@@ -190,9 +224,8 @@ function App() {
     <div className="app">
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
-        {sidebarOpen ? (
-          <div className="sidebar__header">
-            <h2 className="sidebar__title">Conversaciones</h2>
+        <div className="sidebar__header">
+          {sidebarOpen ? (
             <button
               className="hamburger--small"
               onClick={() => setSidebarOpen(false)}
@@ -200,12 +233,7 @@ function App() {
             >
               <FiArrowLeft />
             </button>
-          </div>
-        ) : (
-          <div
-            className="sidebar__header"
-            style={{ flexDirection: "column", alignItems: "center" }}
-          >
+          ) : (
             <button
               className="hamburger--small"
               onClick={() => setSidebarOpen(true)}
@@ -213,57 +241,110 @@ function App() {
             >
               <FiMenu />
             </button>
-            <div
-              style={{
-                marginTop: "20px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "14px",
-              }}
-            >
-              <button onClick={newConversation} title="Nueva conversación">
-                <FiPlus />
-              </button>
-              <button title="Configuración">
-                <FiSettings />
-              </button>
-            </div>
+          )}
+        </div>
+
+        {/* Sidebar cerrada → solo íconos */}
+        {!sidebarOpen && (
+          <div className="sidebar__shortcuts">
+            <button title="Nuevo chat" onClick={newConversation}>
+              <FiPlus />
+            </button>
+            <button title="Buscar chats">
+              <FiSearch />
+            </button>
+            <button title="Biblioteca">
+              <FiBook />
+            </button>
+            <button title="Configuración" onClick={() => setShowConfig(!showConfig)}>
+              <FiSettings />
+            </button>
           </div>
         )}
 
+        {/* Sidebar abierta → menú completo */}
         {sidebarOpen && (
-          <>
-            <button className="btn btn--ghost" onClick={newConversation}>
-              + Nueva conversación
-            </button>
-            <div className="conv-list">
-              {Object.entries(conversations).length === 0 && (
-                <div className="conv-empty">No hay conversaciones</div>
-              )}
-              {Object.entries(conversations).map(([cid, conv]) => (
-                <div
-                  key={cid}
-                  className={`conv-item ${cid === activeConv ? "is-active" : ""}`}
-                >
-                  <button
-                    className="conv-item__btn"
-                    onClick={() => {
-                      loadConversation(cid);
-                      setSidebarOpen(false);
-                    }}
-                  >
-                    {conv.title}
-                  </button>
-                  <button
-                    className="conv-item__delete"
-                    onClick={() => deleteConversation(cid)}
-                  >
-                    🗑️
-                  </button>
-                </div>
-              ))}
+          <div className="sidebar__nav">
+            <div className="sidebar__item" onClick={newConversation}>
+              <FiPlus /> <span>Nuevo chat</span>
             </div>
-          </>
+            <div className="sidebar__item">
+              <FiSearch /> <span>Buscar chats</span>
+            </div>
+            <div className="sidebar__item">
+              <FiBook /> <span>Biblioteca</span>
+            </div>
+
+            {/* Configuración */}
+            <div className="sidebar__item" onClick={() => setShowConfig(!showConfig)}>
+              <FiSettings /> <span>Configuración</span>
+            </div>
+            {showConfig && (
+              <div className="config-menu">
+                <div
+                  className="config-option"
+                  onClick={() => setShowThemeMenu(!showThemeMenu)}
+                >
+                  Tema
+                  <span className="config-value">
+                    {theme === "system"
+                      ? "Sistema"
+                      : theme === "dark"
+                      ? "Oscuro"
+                      : "Claro"} ▼
+                  </span>
+                </div>
+
+                {showThemeMenu && (
+                  <div className="submenu">
+                    <div
+                      className="submenu-option"
+                      onClick={() => changeTheme("system")}
+                    >
+                      Sistema {theme === "system" && "✓"}
+                    </div>
+                    <div
+                      className="submenu-option"
+                      onClick={() => changeTheme("dark")}
+                    >
+                      Oscuro {theme === "dark" && "✓"}
+                    </div>
+                    <div
+                      className="submenu-option"
+                      onClick={() => changeTheme("light")}
+                    >
+                      Claro {theme === "light" && "✓"}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="sidebar__section">Chats</div>
+            {Object.entries(conversations).length === 0 && (
+              <div className="conv-empty">No hay conversaciones</div>
+            )}
+            {Object.entries(conversations).map(([cid, conv]) => (
+              <div
+                key={cid}
+                className={`sidebar__item ${
+                  cid === activeConv ? "is-active" : ""
+                }`}
+                onClick={() => loadConversation(cid)}
+              >
+                <FiMessageSquare /> <span>{conv.title}</span>
+                <button
+                  className="conv-item__delete"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteConversation(cid);
+                  }}
+                >
+                  <FiTrash2 />
+                </button>
+              </div>
+            ))}
+          </div>
         )}
       </aside>
 
@@ -294,10 +375,10 @@ function App() {
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           />
           <button className="btn btn--primary" onClick={sendMessage}>
-            Enviar
+            <FiSend />
           </button>
           <button className="btn btn--success" onClick={speakLast}>
-            🔊
+            <FiVolume2 />
           </button>
         </div>
       </main>
