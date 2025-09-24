@@ -1,127 +1,207 @@
-import { useState, useEffect } from "react"
-import "./App.css"
+import { useEffect, useState, useRef } from "react";
+import "./App.css";
 
 function App() {
-  const [messages, setMessages] = useState([])
-  const [input, setInput] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [conversations, setConversations] = useState({})
-  const [activeConv, setActiveConv] = useState(null)
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [conversations, setConversations] = useState({});
+  const [activeConv, setActiveConv] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
+  const messagesEndRef = useRef(null);
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-  // Cargar lista de conversaciones al iniciar
-  useEffect(() => {
-    fetch(`${API_URL}/conversations`)
-      .then((res) => res.json())
-      .then((data) => setConversations(data))
-  }, [API_URL])
+  // ===== API helpers =====
+  const refreshConversations = async () => {
+    const data = await fetch(`${API_URL}/conversations`).then((r) => r.json());
+    setConversations(data);
+  };
+
+  const loadConversation = async (cid) => {
+    const data = await fetch(`${API_URL}/conversations/${cid}`).then((r) =>
+      r.json()
+    );
+    setActiveConv(cid);
+    setMessages(data.history || []);
+  };
+
+  const newConversation = async () => {
+    const data = await fetch(`${API_URL}/conversations`, {
+      method: "POST",
+    }).then((r) => r.json());
+
+    const updated = { ...conversations, [data.id]: { title: data.title } };
+    setConversations(updated);
+    setActiveConv(data.id);
+    setMessages([]);
+    setSidebarOpen(false);
+  };
+
+  const deleteConversation = async (cid) => {
+    await fetch(`${API_URL}/conversations/${cid}`, { method: "DELETE" });
+    await refreshConversations();
+    if (activeConv === cid) {
+      setActiveConv(null);
+      setMessages([]);
+    }
+  };
 
   const sendMessage = async () => {
-    if (!input) return
-    const userMsg = { role: "user", content: input }
-    setMessages((prev) => [...prev, userMsg, { role: "assistant", content: "🤖 escribiendo..." }])
-    setLoading(true)
+    if (!input.trim()) return;
+
+    const userMsg = { role: "user", content: input };
+    const typing = { role: "assistant", content: "🤖 escribiendo..." };
+    setMessages((prev) => [...prev, userMsg, typing]);
+    setInput("");
+    setLoading(true);
 
     const res = await fetch(`${API_URL}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: input }),
-    })
-    const data = await res.json()
+      body: JSON.stringify({ message: userMsg.content }),
+    });
+    const data = await res.json();
 
-    setMessages(data.history)
-    setInput("")
-    setLoading(false)
-
-    // Refrescar lista de conversaciones
-    const convs = await fetch(`${API_URL}/conversations`).then((r) => r.json())
-    setConversations(convs)
-  }
+    setMessages(data.history || []);
+    setLoading(false);
+    await refreshConversations();
+  };
 
   const speakLast = async () => {
-    const lastBot = [...messages].reverse().find((m) => m.role === "assistant")
-    if (!lastBot) return
+    const lastBot = [...messages].reverse().find((m) => m.role === "assistant");
+    if (!lastBot) return;
 
     const res = await fetch(`${API_URL}/speak`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: lastBot.content }),
-    })
-    const data = await res.json()
+    });
+    const data = await res.json();
 
-    // 👉 Reemplaza "backend" por "localhost" para que funcione en el navegador
-    const audioUrl = data.audio_url.replace("backend", "localhost")
-    const audio = new Audio(audioUrl)
-    audio.play()
-  }
+    const audioUrl = (data.audio_url || "").replace("backend", "localhost");
+    if (!audioUrl) return;
+    const audio = new Audio(audioUrl);
+    audio.play();
+  };
 
-  const newConversation = async () => {
-    const res = await fetch(`${API_URL}/conversations`, { method: "POST" })
-    const data = await res.json()
-    setConversations((prev) => ({ ...prev, [data.id]: { title: data.title } }))
-    setActiveConv(data.id)
-    setMessages([])
-  }
+  // ===== efectos =====
+  useEffect(() => {
+    (async () => {
+      const data = await fetch(`${API_URL}/conversations`).then((r) =>
+        r.json()
+      );
+      setConversations(data);
+      const ids = Object.keys(data);
+      if (ids.length > 0) {
+        const last = ids[ids.length - 1];
+        await loadConversation(last);
+      }
+    })();
+  }, [API_URL]);
 
-  const loadConversation = async (cid) => {
-    const res = await fetch(`${API_URL}/conversations/${cid}`)
-    const data = await res.json()
-    setActiveConv(cid)
-    setMessages(data.history)
-  }
-
-  const deleteConversation = async (cid) => {
-    await fetch(`${API_URL}/conversations/${cid}`, { method: "DELETE" })
-    const convs = await fetch(`${API_URL}/conversations`).then((r) => r.json())
-    setConversations(convs)
-    if (activeConv === cid) {
-      setMessages([])
-      setActiveConv(null)
+  // Auto-scroll
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }
+  }, [messages]);
 
   return (
     <div className="app">
+      {/* Botón hamburguesa externo (solo visible si sidebar está cerrado) */}
+      {!sidebarOpen && (
+        <button
+          className="hamburger"
+          onClick={() => setSidebarOpen(true)}
+        >
+          ☰
+        </button>
+      )}
+
       {/* Sidebar */}
-      <aside className="sidebar">
-        <h2>Conversaciones</h2>
-        <button className="new-chat" onClick={newConversation}>+ Nueva conversación</button>
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+        <div className="sidebar__header">
+          <h2 className="sidebar__title">Conversaciones</h2>
+          {/* Botón hamburguesa interno (cierra el sidebar) */}
+          <button
+            className="hamburger--small"
+            onClick={() => setSidebarOpen(false)}
+          >
+            ☰
+          </button>
+        </div>
+
+        <button className="btn btn--ghost" onClick={newConversation}>
+          + Nueva conversación
+        </button>
+
         <div className="conv-list">
+          {Object.entries(conversations).length === 0 && (
+            <div className="conv-empty">No hay conversaciones</div>
+          )}
           {Object.entries(conversations).map(([cid, conv]) => (
-            <div key={cid} className={`conv-item ${cid === activeConv ? "active" : ""}`}>
-              <span onClick={() => loadConversation(cid)}>{conv.title}</span>
-              <button className="delete-btn" onClick={() => deleteConversation(cid)}>🗑️</button>
+            <div
+              key={cid}
+              className={`conv-item ${cid === activeConv ? "is-active" : ""}`}
+            >
+              <button
+                className="conv-item__btn"
+                onClick={() => {
+                  loadConversation(cid);
+                  setSidebarOpen(false);
+                }}
+              >
+                {conv.title}
+              </button>
+              <button
+                className="conv-item__delete"
+                onClick={() => deleteConversation(cid)}
+              >
+                🗑️
+              </button>
             </div>
           ))}
         </div>
       </aside>
 
       {/* Chat principal */}
-      <main className="chat-container">
+      <main className={`chat ${sidebarOpen ? "shifted" : ""}`}>
         <div className="messages">
           {messages.map((m, i) => (
-            <div key={i} className={`message ${m.role}`}>
+            <div
+              key={i}
+              className={`message ${
+                m.role === "user" ? "message--user" : "message--bot"
+              }`}
+            >
               <div className="bubble">{m.content}</div>
             </div>
           ))}
-          {loading && <p className="typing">🤖 escribiendo...</p>}
+          {loading && <div className="typing">🤖 escribiendo…</div>}
+          {/* marcador invisible para auto-scroll */}
+          <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="input-container">
+        <div className="composer">
           <input
+            className="composer__input"
+            type="text"
+            placeholder="Escribe tu mensaje…"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Escribe tu mensaje..."
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           />
-          <button onClick={sendMessage}>Enviar</button>
-          <button onClick={speakLast}>🔊</button>
+          <button className="btn btn--primary" onClick={sendMessage}>
+            Enviar
+          </button>
+          <button className="btn btn--success" onClick={speakLast}>
+            🔊
+          </button>
         </div>
       </main>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

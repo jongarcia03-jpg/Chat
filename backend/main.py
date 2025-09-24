@@ -7,7 +7,8 @@ from chatbot.bot import get_response
 from chatbot.tts import text_to_speech
 from chatbot.persistence import save_conversations, load_conversations
 from chatbot.utils import generate_title
-import uuid, os, tempfile
+import uuid, os, tempfile, re
+
 
 # ==============================
 # Inicialización
@@ -67,13 +68,30 @@ async def chat(req: ChatRequest):
 
     return {"response": response, "history": memory.get_history()}
 
-@app.post("/speak")
-async def speak(req: SpeakRequest):
-    path = text_to_speech(req.text)
-    filename = os.path.basename(path)
+def clean_text(text: str) -> str:
+    emoji_pattern = re.compile(
+        "["
+        u"\U0001F600-\U0001F64F"
+        u"\U0001F300-\U0001F5FF"
+        u"\U0001F680-\U0001F6FF"
+        u"\U0001F1E0-\U0001F1FF"
+        u"\U00002700-\U000027BF"
+        u"\U0001F900-\U0001F9FF"
+        u"\U00002600-\U000026FF"
+        u"\U00002B00-\U00002BFF"
+        "]+",
+        flags=re.UNICODE,
+    )
+    return emoji_pattern.sub(r"", text)
 
-    # 👉 Devuelve la URL accesible desde Docker (usando el servicio "backend")
+@app.post("/speak")
+async def speak(payload: dict):
+    raw_text = payload.get("text", "")
+    clean = clean_text(raw_text)
+    filepath = text_to_speech(clean)   # 👈 usamos tu función real
+    filename = os.path.basename(filepath)
     return {"audio_url": f"http://backend:8000/audio/{filename}"}
+
 
 @app.get("/conversations")
 async def get_conversations():
