@@ -358,3 +358,12 @@ body {
 }
 .auth-box span:hover { text-decoration: underline; }
 /* ===== utilidades ===== */
+.sidebar__item.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.sidebar__shortcuts button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

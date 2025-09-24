@@ -213,6 +213,10 @@ function App() {
     }
   }, [messages]);
 
+  // === estado derivado para deshabilitar "Nuevo chat" ===
+  const isNewChatDisabled =
+    activeConv && (!messages || messages.length === 0 || !messages.some((m) => m.role === "user"));
+
   // ===== Pantalla de Login / Registro =====
   if (!token) {
     return (
@@ -273,7 +277,11 @@ function App() {
         {/* Sidebar cerrada → quick bar */}
         {!sidebarOpen && (
           <div className="sidebar__shortcuts">
-            <button title="Nuevo chat" onClick={newConversation}>
+            <button
+              title="Nuevo chat"
+              onClick={newConversation}
+              disabled={isNewChatDisabled}
+            >
               <FiPlus />
             </button>
             <button title="Buscar chats">
@@ -288,7 +296,10 @@ function App() {
         {/* Sidebar abierta */}
         {sidebarOpen && (
           <div className="sidebar__nav">
-            <div className="sidebar__item" onClick={newConversation}>
+            <div
+              className={`sidebar__item ${isNewChatDisabled ? "is-disabled" : ""}`}
+              onClick={() => !isNewChatDisabled && newConversation()}
+            >
               <FiPlus /> <span>Nuevo chat</span>
             </div>
             <div className="sidebar__item">
