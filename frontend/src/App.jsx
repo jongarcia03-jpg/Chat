@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { FiMenu, FiPlus, FiSettings, FiArrowLeft } from "react-icons/fi";
 import "./App.css";
 
 function App() {
@@ -109,60 +110,85 @@ function App() {
 
   return (
     <div className="app">
-      {/* Botón hamburguesa externo (solo visible si sidebar está cerrado) */}
-      {!sidebarOpen && (
-        <button
-          className="hamburger"
-          onClick={() => setSidebarOpen(true)}
-        >
-          ☰
-        </button>
-      )}
-
-      {/* Sidebar */}
+      {/* Sidebar siempre presente (mini o completo) */}
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
-        <div className="sidebar__header">
-          <h2 className="sidebar__title">Conversaciones</h2>
-          {/* Botón hamburguesa interno (cierra el sidebar) */}
-          <button
-            className="hamburger--small"
-            onClick={() => setSidebarOpen(false)}
-          >
-            ☰
-          </button>
-        </div>
-
-        <button className="btn btn--ghost" onClick={newConversation}>
-          + Nueva conversación
-        </button>
-
-        <div className="conv-list">
-          {Object.entries(conversations).length === 0 && (
-            <div className="conv-empty">No hay conversaciones</div>
-          )}
-          {Object.entries(conversations).map(([cid, conv]) => (
-            <div
-              key={cid}
-              className={`conv-item ${cid === activeConv ? "is-active" : ""}`}
+        {sidebarOpen ? (
+          <div className="sidebar__header">
+            <h2 className="sidebar__title">Conversaciones</h2>
+            <button
+              className="hamburger--small"
+              onClick={() => setSidebarOpen(false)}
+              title="Cerrar"
             >
-              <button
-                className="conv-item__btn"
-                onClick={() => {
-                  loadConversation(cid);
-                  setSidebarOpen(false);
-                }}
-              >
-                {conv.title}
+              <FiArrowLeft />
+            </button>
+          </div>
+        ) : (
+          <div
+            className="sidebar__header"
+            style={{ flexDirection: "column", alignItems: "center" }}
+          >
+            <button
+              className="hamburger--small"
+              onClick={() => setSidebarOpen(true)}
+              title="Abrir"
+            >
+              <FiMenu />
+            </button>
+            {/* Atajos rápidos */}
+            <div
+              style={{
+                marginTop: "20px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+              }}
+            >
+              <button onClick={newConversation} title="Nueva conversación">
+                <FiPlus />
               </button>
-              <button
-                className="conv-item__delete"
-                onClick={() => deleteConversation(cid)}
-              >
-                🗑️
+              <button title="Configuración">
+                <FiSettings />
               </button>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
+
+        {sidebarOpen && (
+          <>
+            <button className="btn btn--ghost" onClick={newConversation}>
+              + Nueva conversación
+            </button>
+
+            <div className="conv-list">
+              {Object.entries(conversations).length === 0 && (
+                <div className="conv-empty">No hay conversaciones</div>
+              )}
+              {Object.entries(conversations).map(([cid, conv]) => (
+                <div
+                  key={cid}
+                  className={`conv-item ${cid === activeConv ? "is-active" : ""}`}
+                >
+                  <button
+                    className="conv-item__btn"
+                    onClick={() => {
+                      loadConversation(cid);
+                      setSidebarOpen(false);
+                    }}
+                  >
+                    {conv.title}
+                  </button>
+                  <button
+                    className="conv-item__delete"
+                    onClick={() => deleteConversation(cid)}
+                  >
+                    🗑️
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </aside>
 
       {/* Chat principal */}
