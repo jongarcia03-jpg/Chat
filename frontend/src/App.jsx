@@ -21,16 +21,17 @@ function App() {
   const [activeConv, setActiveConv] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // 🔑 Login
+  // Login
   const [token, setToken] = useState(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isRegister, setIsRegister] = useState(false);
 
-  // 🎨 Tema
+  // Tema y configuración
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "system");
   const [showConfig, setShowConfig] = useState(false);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const configRef = useRef(null);
 
   const applyTheme = (selected) => {
     if (selected === "system") {
@@ -49,7 +50,26 @@ function App() {
     setTheme(newTheme);
     localStorage.setItem("theme", newTheme);
     setShowThemeMenu(false);
+    setShowConfig(false);
   };
+
+  const logout = () => {
+    setToken(null);
+    localStorage.removeItem("token");
+    setShowConfig(false);
+  };
+
+  // cerrar menú al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (configRef.current && !configRef.current.contains(e.target)) {
+        setShowConfig(false);
+        setShowThemeMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const messagesEndRef = useRef(null);
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -64,6 +84,7 @@ function App() {
     if (res.ok) {
       const data = await res.json();
       setToken(data.token);
+      localStorage.setItem("token", data.token);
     } else {
       alert("Credenciales incorrectas");
     }
@@ -167,6 +188,11 @@ function App() {
 
   // ===== efectos =====
   useEffect(() => {
+    const savedToken = localStorage.getItem("token");
+    if (savedToken) setToken(savedToken);
+  }, []);
+
+  useEffect(() => {
     if (!token) return;
     (async () => {
       const data = await fetch(`${API_URL}/conversations`, {
@@ -244,7 +270,7 @@ function App() {
           )}
         </div>
 
-        {/* Sidebar cerrada → solo íconos */}
+        {/* Sidebar cerrada → quick bar */}
         {!sidebarOpen && (
           <div className="sidebar__shortcuts">
             <button title="Nuevo chat" onClick={newConversation}>
@@ -256,13 +282,10 @@ function App() {
             <button title="Biblioteca">
               <FiBook />
             </button>
-            <button title="Configuración" onClick={() => setShowConfig(!showConfig)}>
-              <FiSettings />
-            </button>
           </div>
         )}
 
-        {/* Sidebar abierta → menú completo */}
+        {/* Sidebar abierta */}
         {sidebarOpen && (
           <div className="sidebar__nav">
             <div className="sidebar__item" onClick={newConversation}>
@@ -275,75 +298,81 @@ function App() {
               <FiBook /> <span>Biblioteca</span>
             </div>
 
-            {/* Configuración */}
-            <div className="sidebar__item" onClick={() => setShowConfig(!showConfig)}>
-              <FiSettings /> <span>Configuración</span>
-            </div>
-            {showConfig && (
-              <div className="config-menu">
+            {/* Chats */}
+            <div className="sidebar__section">CHATS</div>
+            <div className="sidebar__chats">
+              {Object.entries(conversations).map(([cid, conv]) => (
                 <div
-                  className="config-option"
-                  onClick={() => setShowThemeMenu(!showThemeMenu)}
+                  key={cid}
+                  className={`conv-item ${activeConv === cid ? "is-active" : ""}`}
+                  onClick={() => loadConversation(cid)}
                 >
-                  Tema
-                  <span className="config-value">
-                    {theme === "system"
-                      ? "Sistema"
-                      : theme === "dark"
-                      ? "Oscuro"
-                      : "Claro"} ▼
-                  </span>
+                  <FiMessageSquare />
+                  <span>{conv.title || "Nueva conversación"}</span>
+                  <button
+                    className="conv-item__delete"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteConversation(cid);
+                    }}
+                  >
+                    <FiTrash2 />
+                  </button>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-                {showThemeMenu && (
-                  <div className="submenu">
-                    <div
-                      className="submenu-option"
-                      onClick={() => changeTheme("system")}
-                    >
-                      Sistema {theme === "system" && "✓"}
-                    </div>
-                    <div
-                      className="submenu-option"
-                      onClick={() => changeTheme("dark")}
-                    >
-                      Oscuro {theme === "dark" && "✓"}
-                    </div>
-                    <div
-                      className="submenu-option"
-                      onClick={() => changeTheme("light")}
-                    >
-                      Claro {theme === "light" && "✓"}
-                    </div>
-                  </div>
-                )}
+        {/* Configuración fija abajo */}
+        <div className="sidebar__footer">
+          <div
+            className="sidebar__item"
+            onClick={() => setShowConfig(!showConfig)}
+            ref={configRef}
+          >
+            <FiSettings /> {sidebarOpen && <span>Configuración</span>}
+          </div>
+        </div>
+
+        {/* Menú flotante de configuración */}
+        {showConfig && (
+          <div
+            className={`config-popup ${sidebarOpen ? "from-sidebar" : "from-quick"}`}
+            ref={configRef}
+          >
+            <div
+              className="config-option"
+              onClick={() => setShowThemeMenu(!showThemeMenu)}
+            >
+              Tema
+              <span className="config-value">
+                {theme === "system"
+                  ? "Sistema"
+                  : theme === "dark"
+                  ? "Oscuro"
+                  : "Claro"} ▼
+              </span>
+            </div>
+
+            {showThemeMenu && (
+              <div className="submenu">
+                <div className="submenu-option" onClick={() => changeTheme("system")}>
+                  Sistema {theme === "system" && "✓"}
+                </div>
+                <div className="submenu-option" onClick={() => changeTheme("dark")}>
+                  Oscuro {theme === "dark" && "✓"}
+                </div>
+                <div className="submenu-option" onClick={() => changeTheme("light")}>
+                  Claro {theme === "light" && "✓"}
+                </div>
               </div>
             )}
 
-            <div className="sidebar__section">Chats</div>
-            {Object.entries(conversations).length === 0 && (
-              <div className="conv-empty">No hay conversaciones</div>
-            )}
-            {Object.entries(conversations).map(([cid, conv]) => (
-              <div
-                key={cid}
-                className={`sidebar__item ${
-                  cid === activeConv ? "is-active" : ""
-                }`}
-                onClick={() => loadConversation(cid)}
-              >
-                <FiMessageSquare /> <span>{conv.title}</span>
-                <button
-                  className="conv-item__delete"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteConversation(cid);
-                  }}
-                >
-                  <FiTrash2 />
-                </button>
-              </div>
-            ))}
+            <div className="config-separator"></div>
+            <div className="config-option logout" onClick={logout}>
+              Cerrar sesión
+            </div>
           </div>
         )}
       </aside>
