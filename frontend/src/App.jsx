@@ -10,19 +10,57 @@ function App() {
   const [activeConv, setActiveConv] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // 🔑 Login
+  const [token, setToken] = useState(null);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isRegister, setIsRegister] = useState(false);
+
   const messagesEndRef = useRef(null);
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+  // ===== Autenticación =====
+  const login = async () => {
+    const res = await fetch(`${API_URL}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setToken(data.token);
+    } else {
+      alert("Credenciales incorrectas");
+    }
+  };
+
+  const register = async () => {
+    const res = await fetch(`${API_URL}/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    if (res.ok) {
+      alert("Usuario registrado. Ahora inicia sesión.");
+      setIsRegister(false);
+    } else {
+      const err = await res.json();
+      alert(err.detail || "Error al registrar");
+    }
+  };
+
   // ===== API helpers =====
   const refreshConversations = async () => {
-    const data = await fetch(`${API_URL}/conversations`).then((r) => r.json());
+    const data = await fetch(`${API_URL}/conversations`, {
+      headers: { Authorization: token },
+    }).then((r) => r.json());
     setConversations(data);
   };
 
   const loadConversation = async (cid) => {
-    const data = await fetch(`${API_URL}/conversations/${cid}`).then((r) =>
-      r.json()
-    );
+    const data = await fetch(`${API_URL}/conversations/${cid}`, {
+      headers: { Authorization: token },
+    }).then((r) => r.json());
     setActiveConv(cid);
     setMessages(data.history || []);
   };
@@ -30,6 +68,7 @@ function App() {
   const newConversation = async () => {
     const data = await fetch(`${API_URL}/conversations`, {
       method: "POST",
+      headers: { Authorization: token },
     }).then((r) => r.json());
 
     const updated = { ...conversations, [data.id]: { title: data.title } };
@@ -40,7 +79,10 @@ function App() {
   };
 
   const deleteConversation = async (cid) => {
-    await fetch(`${API_URL}/conversations/${cid}`, { method: "DELETE" });
+    await fetch(`${API_URL}/conversations/${cid}`, {
+      method: "DELETE",
+      headers: { Authorization: token },
+    });
     await refreshConversations();
     if (activeConv === cid) {
       setActiveConv(null);
@@ -59,7 +101,10 @@ function App() {
 
     const res = await fetch(`${API_URL}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token,
+      },
       body: JSON.stringify({ message: userMsg.content }),
     });
     const data = await res.json();
@@ -88,10 +133,11 @@ function App() {
 
   // ===== efectos =====
   useEffect(() => {
+    if (!token) return;
     (async () => {
-      const data = await fetch(`${API_URL}/conversations`).then((r) =>
-        r.json()
-      );
+      const data = await fetch(`${API_URL}/conversations`, {
+        headers: { Authorization: token },
+      }).then((r) => r.json());
       setConversations(data);
       const ids = Object.keys(data);
       if (ids.length > 0) {
@@ -99,18 +145,50 @@ function App() {
         await loadConversation(last);
       }
     })();
-  }, [API_URL]);
+  }, [API_URL, token]);
 
-  // Auto-scroll
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
+  // ===== Pantalla de Login / Registro =====
+  if (!token) {
+    return (
+      <div className="auth-container">
+        <div className="auth-box">
+          <h2>{isRegister ? "Crear cuenta" : "Iniciar sesión"}</h2>
+          <input
+            type="text"
+            placeholder="Usuario"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button onClick={isRegister ? register : login}>
+            {isRegister ? "Registrarse" : "Entrar"}
+          </button>
+          <p>
+            {isRegister ? "¿Ya tienes cuenta?" : "¿No tienes cuenta?"}{" "}
+            <span onClick={() => setIsRegister(!isRegister)}>
+              {isRegister ? "Inicia sesión" : "Regístrate"}
+            </span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ===== Pantalla principal =====
   return (
     <div className="app">
-      {/* Sidebar siempre presente (mini o completo) */}
+      {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         {sidebarOpen ? (
           <div className="sidebar__header">
@@ -135,7 +213,6 @@ function App() {
             >
               <FiMenu />
             </button>
-            {/* Atajos rápidos */}
             <div
               style={{
                 marginTop: "20px",
@@ -159,7 +236,6 @@ function App() {
             <button className="btn btn--ghost" onClick={newConversation}>
               + Nueva conversación
             </button>
-
             <div className="conv-list">
               {Object.entries(conversations).length === 0 && (
                 <div className="conv-empty">No hay conversaciones</div>
@@ -205,7 +281,6 @@ function App() {
             </div>
           ))}
           {loading && <div className="typing">🤖 escribiendo…</div>}
-          {/* marcador invisible para auto-scroll */}
           <div ref={messagesEndRef} />
         </div>
 

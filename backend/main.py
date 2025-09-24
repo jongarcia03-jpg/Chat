@@ -1,21 +1,20 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from chatbot.memory import ChatMemory
 from chatbot.bot import get_response
 from chatbot.tts import text_to_speech
-from chatbot.persistence import save_conversations, load_conversations
 from chatbot.utils import generate_title
+from chatbot.models import init_db, SessionLocal, User, Conversation, Message
+from sqlalchemy.orm import Session
+from passlib.hash import bcrypt
 import uuid, os, tempfile, re
-
 
 # ==============================
 # Inicialización
 # ==============================
 app = FastAPI()
-conversations = load_conversations()
-current_conversation = list(conversations.keys())[-1] if conversations else None
+init_db()
 
 # Carpeta temporal para audios
 AUDIO_DIR = os.path.join(tempfile.gettempdir(), "chatbot_audio")
@@ -24,7 +23,7 @@ os.makedirs(AUDIO_DIR, exist_ok=True)
 # Servir archivos estáticos en /audio
 app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 
-# CORS para React u otros clientes
+# CORS para React
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,8 +31,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Sesiones en memoria: token -> user_id
+sessions = {}
+
 # ==============================
-# Modelos
+# Modelos de entrada
 # ==============================
 class ChatRequest(BaseModel):
     message: str
@@ -41,32 +43,125 @@ class ChatRequest(BaseModel):
 class SpeakRequest(BaseModel):
     text: str
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 # ==============================
-# Rutas
+# DB helper
+# ==============================
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def get_current_user(authorization: str = Header(...), db: Session = Depends(get_db)):
+    if authorization not in sessions:
+        raise HTTPException(status_code=401, detail="No autorizado")
+    user_id = sessions[authorization]
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return user
+
+# ==============================
+# Rutas de autenticación
+# ==============================
+@app.post("/register")
+def register(req: RegisterRequest, db: Session = Depends(get_db)):
+    existing = db.query(User).filter_by(username=req.username).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Usuario ya existe")
+    user = User(username=req.username, password_hash=bcrypt.hash(req.password))
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return {"ok": True, "msg": "Usuario registrado"}
+
+@app.post("/login")
+def login(req: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter_by(username=req.username).first()
+    if not user or not user.verify_password(req.password):
+        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+    token = str(uuid.uuid4())
+    sessions[token] = user.id
+    return {"token": token}
+
+# ==============================
+# Rutas de conversaciones
+# ==============================
+@app.get("/conversations")
+def get_conversations(user: User = Depends(get_current_user)):
+    return {conv.id: {"title": conv.title} for conv in user.conversations}
+
+@app.get("/conversations/{cid}")
+def get_conversation(cid: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    conv = db.query(Conversation).filter_by(id=cid, user_id=user.id).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="No existe la conversación")
+    return {
+        "id": conv.id,
+        "title": conv.title,
+        "history": [{"role": m.role, "content": m.content} for m in conv.messages]
+    }
+
+@app.post("/conversations")
+def new_conversation(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    conv = Conversation(user_id=user.id, title="Nueva conversación")
+    db.add(conv)
+    db.commit()
+    db.refresh(conv)
+    return {"id": conv.id, "title": conv.title}
+
+@app.delete("/conversations/{cid}")
+def delete_conversation(cid: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    conv = db.query(Conversation).filter_by(id=cid, user_id=user.id).first()
+    if conv:
+        db.delete(conv)
+        db.commit()
+    return {"ok": True}
+
+# ==============================
+# Chat y TTS
 # ==============================
 @app.post("/chat")
-async def chat(req: ChatRequest):
-    global current_conversation
+def chat(req: ChatRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    conv = db.query(Conversation).filter_by(user_id=user.id).order_by(Conversation.id.desc()).first()
+    if not conv:
+        conv = Conversation(user_id=user.id, title="Nueva conversación")
+        db.add(conv)
+        db.commit()
+        db.refresh(conv)
 
-    if current_conversation is None:
-        conv_id = str(uuid.uuid4())[:8]
-        conversations[conv_id] = {"title": "Nueva conversación", "memory": ChatMemory()}
-        current_conversation = conv_id
+    # Guardar mensaje del usuario
+    msg_user = Message(role="user", content=req.message, conversation_id=conv.id)
+    db.add(msg_user)
 
-    memory = conversations[current_conversation]["memory"]
+    # Historial
+    history = [{"role": m.role, "content": m.content} for m in conv.messages] + [{"role": "user", "content": req.message}]
 
-    memory.add_message("user", req.message)
-    response = get_response(req.message, history=memory.get_history())
-    if not response or not response.strip():
-        response = "Lo siento, no tengo respuesta para eso."
-    memory.add_message("assistant", response)
+    # Llamada a IA
+    response_text = get_response(req.message, history=history)
+    if not response_text or not response_text.strip():
+        response_text = "Lo siento, no tengo respuesta para eso."
 
-    if len(memory.get_history()) <= 2:
-        conversations[current_conversation]["title"] = generate_title(req.message)
+    # Guardar respuesta
+    msg_bot = Message(role="assistant", content=response_text, conversation_id=conv.id)
+    db.add(msg_bot)
 
-    save_conversations(conversations)
+    # Renombrar conversación si es la primera interacción
+    if len(conv.messages) <= 2:
+        conv.title = generate_title(req.message)
 
-    return {"response": response, "history": memory.get_history()}
+    db.commit()
+
+    return {"response": response_text, "history": history + [{"role": "assistant", "content": response_text}]}
 
 def clean_text(text: str) -> str:
     emoji_pattern = re.compile(
@@ -88,36 +183,6 @@ def clean_text(text: str) -> str:
 async def speak(payload: dict):
     raw_text = payload.get("text", "")
     clean = clean_text(raw_text)
-    filepath = text_to_speech(clean)   # 👈 usamos tu función real
+    filepath = text_to_speech(clean)
     filename = os.path.basename(filepath)
     return {"audio_url": f"http://backend:8000/audio/{filename}"}
-
-
-@app.get("/conversations")
-async def get_conversations():
-    return {cid: {"title": conv["title"]} for cid, conv in conversations.items()}
-
-@app.get("/conversations/{cid}")
-async def get_conversation(cid: str):
-    if cid not in conversations:
-        return {"error": "No existe la conversación"}
-    return {"id": cid, "title": conversations[cid]["title"], "history": conversations[cid]["memory"].get_history()}
-
-@app.post("/conversations")
-async def new_conversation():
-    global current_conversation
-    conv_id = str(uuid.uuid4())[:8]
-    conversations[conv_id] = {"title": "Nueva conversación", "memory": ChatMemory()}
-    current_conversation = conv_id
-    save_conversations(conversations)
-    return {"id": conv_id, "title": conversations[conv_id]["title"]}
-
-@app.delete("/conversations/{cid}")
-async def delete_conversation(cid: str):
-    global current_conversation
-    if cid in conversations:
-        del conversations[cid]
-        if current_conversation == cid:
-            current_conversation = list(conversations.keys())[-1] if conversations else None
-        save_conversations(conversations)
-    return {"ok": True}

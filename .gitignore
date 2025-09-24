@@ -93,3 +93,4 @@ pnpm-lock.yaml
 
 # Archivos de audio generados
 *.mp3
+*.db 

@@ -264,3 +264,72 @@ body {
   background-color: var(--bg);
   border-radius: 4px;
 }
+
+/* ===== login / register ===== */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: linear-gradient(135deg, #1e1e2f, #2a2a3d);
+}
+
+.auth-box {
+  background: #2e2e3f;
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  text-align: center;
+  width: 320px;
+}
+
+.auth-box h2 {
+  margin-bottom: 20px;
+  color: #fff;
+}
+
+.auth-box input {
+  width: 100%;
+  margin: 10px 0;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  outline: none;
+  background: #444;
+  color: #fff;
+}
+
+.auth-box input::placeholder {
+  color: #aaa;
+}
+
+.auth-box button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 15px;
+  background: #1677ff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.auth-box button:hover {
+  background: #0e63d6;
+}
+
+.auth-box p {
+  margin-top: 15px;
+  color: #ddd;
+}
+
+.auth-box span {
+  color: #1677ff;
+  cursor: pointer;
+  font-weight: bold;
+}
+.auth-box span:hover {
+  text-decoration: underline;
+}
