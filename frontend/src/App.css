@@ -367,3 +367,136 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* ===== Logo / Hamburguesa camuflada ===== */
+.logo-button {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.logo-img {
+  width: 32px;
+  height: 32px;
+  transition: opacity 0.2s ease;
+}
+
+.logo-menu {
+  position: absolute;
+  font-size: 24px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: var(--text);
+}
+
+.logo-button:hover .logo-img {
+  opacity: 0;
+}
+.logo-button:hover .logo-menu {
+  opacity: 1;
+}
+/* ===== Logo fijo cuando la sidebar está abierta ===== */
+.logo-fixed {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 4px 8px;
+}
+
+.logo-fixed .logo-img {
+  width: 36px;
+  height: 36px;
+}
+
+/* ===== Logo / Hamburguesa camuflada (sidebar cerrada) ===== */
+.logo-button {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.logo-img {
+  width: 32px;
+  height: 32px;
+  transition: opacity 0.2s ease;
+}
+
+.logo-menu {
+  position: absolute;
+  font-size: 24px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: var(--text);
+}
+
+.logo-button:hover .logo-img {
+  opacity: 0;
+}
+.logo-button:hover .logo-menu {
+  opacity: 1;
+}
+/* ===== Sidebar header: logo izquierda + hamburguesa derecha ===== */
+/* Sobrescribe el justify-content anterior */
+.sidebar__header {
+  display: flex;
+  justify-content: space-between; /* antes: flex-end */
+  align-items: center;
+  padding: 8px;
+}
+
+/* Logo fijo cuando la sidebar está abierta */
+.logo-fixed {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 4px 4px 4px 8px;
+}
+
+.logo-fixed .logo-img {
+  width: 36px;
+  height: 36px;
+}
+
+/* ===== Logo / Hamburguesa camuflada (sidebar cerrada) ===== */
+.logo-button {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.logo-img {
+  width: 32px;
+  height: 32px;
+  transition: opacity 0.2s ease;
+}
+
+.logo-menu {
+  position: absolute;
+  font-size: 24px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  color: var(--text);
+}
+
+.logo-button:hover .logo-img { opacity: 0; }
+.logo-button:hover .logo-menu { opacity: 1; }

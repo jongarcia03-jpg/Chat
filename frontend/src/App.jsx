@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from "react";
 import {
   FiMenu,
   FiPlus,
-  FiArrowLeft,
   FiTrash2,
   FiSend,
   FiVolume2,
@@ -12,6 +11,7 @@ import {
   FiSettings,
 } from "react-icons/fi";
 import "./App.css";
+import Logo from "./assets/logo.png"; // ✅ Importa tu logo desde src/assets
 
 function App() {
   const [messages, setMessages] = useState([]);
@@ -178,7 +178,6 @@ function App() {
     setMessages(data.history || []);
     setLoading(false);
 
-    // El backend genera y guarda el título en el primer mensaje
     await refreshConversations();
   };
 
@@ -219,7 +218,6 @@ function App() {
     }
   }, [messages]);
 
-  // Deshabilitar "Nuevo chat" si la conversación activa no tiene mensajes de usuario
   const isNewChatDisabled =
     activeConv && (!messages || messages.length === 0 || !messages.some((m) => m.role === "user"));
 
@@ -262,17 +260,32 @@ function App() {
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="sidebar__header">
           {sidebarOpen ? (
-            <button className="hamburger--small" onClick={() => setSidebarOpen(false)} title="Cerrar">
-              <FiArrowLeft />
-            </button>
+            // ✅ Abierta: logo a la izquierda + hamburguesa a la derecha
+            <>
+              <div className="logo-fixed">
+                <img src={Logo} alt="Logo" className="logo-img" />
+              </div>
+              <button
+                className="hamburger--small"
+                onClick={() => setSidebarOpen(false)}
+                title="Cerrar"
+              >
+                <FiMenu />
+              </button>
+            </>
           ) : (
-            <button className="hamburger--small" onClick={() => setSidebarOpen(true)} title="Abrir">
-              <FiMenu />
+            // ✅ Cerrada: logo camuflado en hamburguesa (hover)
+            <button
+              className="logo-button"
+              onClick={() => setSidebarOpen(true)}
+              title="Abrir"
+            >
+              <img src={Logo} alt="Logo" className="logo-img" />
+              <FiMenu className="logo-menu" />
             </button>
           )}
         </div>
 
-        {/* Quick bar cuando está cerrada */}
         {!sidebarOpen && (
           <div className="sidebar__shortcuts">
             <button title="Nuevo chat" onClick={newConversation} disabled={isNewChatDisabled}>
@@ -287,7 +300,6 @@ function App() {
           </div>
         )}
 
-        {/* Sidebar abierta */}
         {sidebarOpen && (
           <div className="sidebar__nav">
             <div
@@ -303,7 +315,6 @@ function App() {
               <FiBook /> <span>Biblioteca</span>
             </div>
 
-            {/* Lista de chats */}
             <div className="sidebar__section">CHATS</div>
             <div className="sidebar__chats">
               {Object.entries(conversations).map(([cid, conv]) => (
@@ -329,14 +340,12 @@ function App() {
           </div>
         )}
 
-        {/* Config abajo a la izquierda (también cuando está cerrada) */}
         <div className="sidebar__footer">
           <div className="sidebar__item" onClick={() => setShowConfig(!showConfig)} ref={configRef}>
             <FiSettings /> {sidebarOpen && <span>Configuración</span>}
           </div>
         </div>
 
-        {/* Pop-up de configuración */}
         {showConfig && (
           <div className={`config-popup ${sidebarOpen ? "from-sidebar" : "from-quick"}`} ref={configRef}>
             <div className="config-option" onClick={() => setShowThemeMenu(!showThemeMenu)}>
@@ -368,7 +377,6 @@ function App() {
         )}
       </aside>
 
-      {/* Chat principal */}
       <main className={`chat ${sidebarOpen ? "shifted" : ""}`}>
         <div className="messages">
           {messages.map((m, i) => (
