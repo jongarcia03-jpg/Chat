@@ -1,0 +1,13 @@
+﻿steps:
+- name: gcr.io/cloud-builders/docker
+  args:
+    - build
+    - -t
+    - us-central1-docker.pkg.dev/healthy-keyword-473807-q7/chat-repo/frontend:1
+    - -f
+    - frontend/Dockerfile
+    - --build-arg
+    - VITE_API_URL=https://chat-backend-667048404203.us-central1.run.app
+    - .
+images:
+- us-central1-docker.pkg.dev/healthy-keyword-473807-q7/chat-repo/frontend:1

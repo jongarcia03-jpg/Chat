@@ -1,5 +1,5 @@
 steps:
 - name: gcr.io/cloud-builders/docker
-  args: ['build','-t','us-central1-docker.pkg.dev/healthy-keyword-473807-q7/chat-repo/backend:1','-f','backend/Dockerfile','.']
+  args: ['build','-t','us-central1-docker.pkg.dev/healthy-keyword-473807-q7/chat-repo/backend:2','-f','backend/Dockerfile','.']
 images:
-- us-central1-docker.pkg.dev/healthy-keyword-473807-q7/chat-repo/backend:1
+- us-central1-docker.pkg.dev/healthy-keyword-473807-q7/chat-repo/backend:2

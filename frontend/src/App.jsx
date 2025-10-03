@@ -204,7 +204,7 @@ function App() {
     });
 
     const data = await response.json();
-    const audioUrl = (data.audio_url || "").replace("backend", "localhost");
+    const audioUrl = data.audio_url || "";
 
     if (!audioUrl) {
       return;

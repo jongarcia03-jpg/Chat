@@ -1,16 +1,27 @@
 import os
+import re
+import tempfile
+import uuid
+
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Depends, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from passlib.hash import bcrypt
+
 from chatbot.bot import get_response
 from chatbot.tts import text_to_speech
 from chatbot.utils import generate_title
-from chatbot.models import init_db, SessionLocal, User, Conversation, Message
-from sqlalchemy.orm import Session
-from passlib.hash import bcrypt
-import uuid, tempfile, re
+from chatbot.models import (
+    Conversation,
+    Message,
+    SessionLocal,
+    SessionToken,
+    User,
+    init_db,
+)
 
 # ==============================
 # Cargar variables de entorno
@@ -18,7 +29,7 @@ import uuid, tempfile, re
 load_dotenv()
 
 # ==============================
-# Inicialización
+# Inicializacion
 # ==============================
 app = FastAPI()
 init_db()
@@ -27,7 +38,7 @@ init_db()
 AUDIO_DIR = os.path.join(tempfile.gettempdir(), "chatbot_audio")
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
-# Servir archivos estáticos en /audio
+# Servir archivos estaticos en /audio
 app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 
 # CORS para React
@@ -38,25 +49,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Sesiones en memoria: token -> user_id
-sessions = {}
-
 # ==============================
 # Modelos de entrada
 # ==============================
 class ChatRequest(BaseModel):
     message: str
 
+
 class SpeakRequest(BaseModel):
     text: str
+
 
 class RegisterRequest(BaseModel):
     username: str
     password: str
 
+
 class LoginRequest(BaseModel):
     username: str
     password: str
+
 
 # ==============================
 # DB helper
@@ -68,37 +80,52 @@ def get_db():
     finally:
         db.close()
 
-def get_current_user(authorization: str = Header(...), db: Session = Depends(get_db)):
-    if authorization not in sessions:
+
+def get_current_user(
+    authorization: str = Header(...),
+    db: Session = Depends(get_db),
+):
+    token_value = (authorization or "").strip()
+    if not token_value:
         raise HTTPException(status_code=401, detail="No autorizado")
-    user_id = sessions[authorization]
-    user = db.query(User).filter_by(id=user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return user
+
+    session_token = db.query(SessionToken).filter_by(token=token_value).first()
+    if not session_token:
+        raise HTTPException(status_code=401, detail="No autorizado")
+
+    return session_token.user
+
 
 # ==============================
-# Rutas de autenticación
+# Rutas de autenticacion
 # ==============================
 @app.post("/register")
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
     existing = db.query(User).filter_by(username=req.username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Usuario ya existe")
+
     user = User(username=req.username, password_hash=bcrypt.hash(req.password))
     db.add(user)
     db.commit()
     db.refresh(user)
     return {"ok": True, "msg": "Usuario registrado"}
 
+
 @app.post("/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter_by(username=req.username).first()
     if not user or not user.verify_password(req.password):
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
+        raise HTTPException(status_code=401, detail="Credenciales invalidas")
+
+    db.query(SessionToken).filter_by(user_id=user.id).delete(synchronize_session=False)
+
     token = str(uuid.uuid4())
-    sessions[token] = user.id
+    db.add(SessionToken(token=token, user_id=user.id))
+    db.commit()
+
     return {"token": token}
+
 
 # ==============================
 # Rutas de conversaciones
@@ -107,67 +134,93 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 def get_conversations(user: User = Depends(get_current_user)):
     return {conv.id: {"title": conv.title} for conv in user.conversations}
 
+
 @app.get("/conversations/{cid}")
-def get_conversation(cid: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_conversation(
+    cid: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     conv = db.query(Conversation).filter_by(id=cid, user_id=user.id).first()
     if not conv:
-        raise HTTPException(status_code=404, detail="No existe la conversación")
+        raise HTTPException(status_code=404, detail="No existe la conversacion")
+
     return {
         "id": conv.id,
         "title": conv.title,
-        "history": [{"role": m.role, "content": m.content} for m in conv.messages]
+        "history": [
+            {"role": message.role, "content": message.content}
+            for message in conv.messages
+        ],
     }
+
 
 @app.post("/conversations")
 def new_conversation(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    conv = Conversation(user_id=user.id, title="Nueva conversación")
+    conv = Conversation(user_id=user.id, title="Nueva conversacion")
     db.add(conv)
     db.commit()
     db.refresh(conv)
     return {"id": conv.id, "title": conv.title}
 
+
 @app.delete("/conversations/{cid}")
-def delete_conversation(cid: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_conversation(
+    cid: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     conv = db.query(Conversation).filter_by(id=cid, user_id=user.id).first()
     if conv:
         db.delete(conv)
         db.commit()
     return {"ok": True}
 
+
 # ==============================
 # Chat y TTS
 # ==============================
 @app.post("/chat")
 def chat(req: ChatRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    conv = db.query(Conversation).filter_by(user_id=user.id).order_by(Conversation.id.desc()).first()
+    conv = (
+        db.query(Conversation)
+        .filter_by(user_id=user.id)
+        .order_by(Conversation.id.desc())
+        .first()
+    )
     if not conv:
-        conv = Conversation(user_id=user.id, title="Nueva conversación")
+        conv = Conversation(user_id=user.id, title="Nueva conversacion")
         db.add(conv)
         db.commit()
         db.refresh(conv)
 
-    # Guardar mensaje del usuario
     msg_user = Message(role="user", content=req.message, conversation_id=conv.id)
     db.add(msg_user)
 
-    # Historial
-    history = [{"role": m.role, "content": m.content} for m in conv.messages] + [{"role": "user", "content": req.message}]
+    history = [
+        {"role": message.role, "content": message.content}
+        for message in conv.messages
+    ] + [{"role": "user", "content": req.message}]
 
-    # Llamada a IA
-    response_text = get_response(req.message, history=history) or "Lo siento, no tengo respuesta para eso."
+    response_text = (
+        get_response(req.message, history=history)
+        or "Lo siento, no tengo respuesta para eso."
+    )
 
-    # Guardar respuesta
     msg_bot = Message(role="assistant", content=response_text, conversation_id=conv.id)
     db.add(msg_bot)
 
-    # ✅ Generar título con IA solo en la primera interacción
-    if conv.title == "Nueva conversación":
+    if conv.title == "Nueva conversacion":
         conv.title = generate_title(req.message)
         db.commit()
 
     db.commit()
 
-    return {"response": response_text, "history": history + [{"role": "assistant", "content": response_text}]}
+    return {
+        "response": response_text,
+        "history": history + [{"role": "assistant", "content": response_text}],
+    }
+
 
 def clean_text(text: str) -> str:
     emoji_pattern = re.compile(
@@ -185,10 +238,12 @@ def clean_text(text: str) -> str:
     )
     return emoji_pattern.sub(r"", text)
 
+
 @app.post("/speak")
-async def speak(payload: dict):
-    raw_text = payload.get("text", "")
+async def speak(req: SpeakRequest, request: Request):
+    raw_text = req.text or ""
     clean = clean_text(raw_text)
     filepath = text_to_speech(clean)
     filename = os.path.basename(filepath)
-    return {"audio_url": f"http://localhost:8000/audio/{filename}"}
+    audio_url = request.url_for("audio", path=filename)
+    return {"audio_url": str(audio_url)}
